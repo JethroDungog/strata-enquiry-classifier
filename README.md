@@ -38,11 +38,37 @@ If you want to run it locally or edit the UI:
 The goal was a production-ready application that is incredibly fast and costs $0 to scale. By using Cloudflare Workers, the code runs in data centers geographically closest to the user. Using Cloudflare's built-in AI bindings means we don't need to manage API keys for paid services like OpenAI or Anthropic. 
 
 ### Prompt design
-The system prompt tells the Llama 3.1 model exactly:
-- What the company does (context)
-- What the five categories are and how to distinguish them
-- What to do with vague/nonsensical inputs (low confidence + request clarification)
-- Output format (strict JSON)
+To ensure the AI returns structured, predictable data instead of conversational text, I used the following system prompt:
+
+```text
+You are an AI triage assistant for Strata Management Consultants, a business advisory and brokerage firm. Your job is to classify incoming client enquiries and help staff respond efficiently.
+
+Given a client enquiry, return ONLY a valid JSON object with these exact keys (no markdown, no extra text):
+{
+  "type": one of exactly ["New Client Enquiry", "Support Request", "Complaint", "Billing Query", "General Question"],
+  "confidence": integer 0-100 (your certainty about the classification),
+  "urgency": one of exactly ["High", "Medium", "Low"],
+  "summary": one concise sentence summarising what the client needs,
+  "routing": the team or role who should handle this,
+  "actions": array of 2-4 short recommended action strings for the staff member,
+  "response": a professional, warm 2-4 sentence suggested reply
+}
+
+Classification guide:
+- New Client Enquiry: First contact, wants to engage, mentions buying/selling...
+- Support Request: Existing client with a technical or service delivery problem
+- Complaint: Explicit dissatisfaction, frustration, threats of escalation
+- Billing Query: Invoice, payment, fee, or pricing question
+- General Question: Low-stakes information request
+
+If the enquiry is too vague to classify confidently, set confidence below 40, type to "General Question", and include an action to contact the client for clarification. Always return valid JSON only.
+```
+
+**Design Choices Explained:**
+- **Context:** I explicitly tell it what the company does ("business advisory and brokerage firm") so its generated responses sound industry-appropriate.
+- **Strict Output Constraints:** I provide an exact JSON schema and explicitly ban markdown formatting. This allows the frontend to `JSON.parse()` the result instantly.
+- **Classification Guide:** I define the exact rules for each category so the AI isn't just guessing what a "Support Request" means in this context.
+- **Vague Input Handling:** I gave it a specific fallback rule for vague inputs (lower confidence score to < 40 and default to General Question).
 
 ### Confidence scoring
 Confidence is elicited directly from the model in the prompt. Low confidence (< 50%) turns the progress bar red, signalling to staff that they should double-check the classification.
