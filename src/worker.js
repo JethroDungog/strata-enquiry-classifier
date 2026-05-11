@@ -4,10 +4,20 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    };
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+
     // Serve the HTML file
     if (url.pathname === '/' && request.method === 'GET') {
       return new Response(html, {
-        headers: { 'Content-Type': 'text/html;charset=UTF-8' }
+        headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders }
       });
     }
 
@@ -20,7 +30,7 @@ export default {
         if (!text) {
           return new Response(JSON.stringify({ error: 'No text provided' }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         }
 
@@ -69,17 +79,17 @@ If the enquiry is too vague to classify confidently, set confidence below 40, ty
         }
 
         return new Response(JSON.stringify(result), {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
 
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), {
           status: 500,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
         });
       }
     }
 
-    return new Response('Not Found', { status: 404 });
+    return new Response('Not Found', { status: 404, headers: corsHeaders });
   }
 };

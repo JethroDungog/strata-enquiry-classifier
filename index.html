@@ -145,7 +145,7 @@ async function analyse() {
     // Using Cloudflare Workers AI via our backend endpoint
 
   try {
-    const res = await fetch('/api/analyse', {
+    const res = await fetch('https://strataenquiry.dungogjethro.workers.dev/api/analyse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text })
