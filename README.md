@@ -1,6 +1,6 @@
 # Strata Enquiry Classifier
 
-An AI-powered client enquiry triage tool built for Strata Management Consultants.
+An AI-powered client enquiry triage tool built for Strata Management Consultants, running entirely on a Serverless Edge AI stack.
 
 ## What it does
 
@@ -13,49 +13,50 @@ Paste any client enquiry (email, web form, or freeform message) and the tool wil
 - **Recommend actions** for the staff member to take
 - **Draft a suggested response** — warm, professional, ready to send or adapt
 
+## Tech Stack (Serverless Edge AI)
+
+This project uses a lightning-fast, zero-dependency stack that runs at the network edge:
+
+- **Frontend:** Vanilla HTML, CSS, and JavaScript (No React, Vue, or build steps)
+- **Backend:** Cloudflare Workers (Serverless computing)
+- **AI Engine:** Cloudflare Workers AI using the open-source **Meta Llama 3.1 (8B Instruct)** model.
+
 ## How to run it
 
-This is a single-file HTML app — no build step, no server, no dependencies.
+This project is deployed live on Cloudflare Workers and can be accessed directly from any browser:
 
-1. Open `index.html` in any modern browser (Chrome, Firefox, Edge, Safari)
-2. The app calls the Anthropic Claude API directly from the browser
-3. Paste an enquiry or click one of the example buttons and hit **Analyse Enquiry**
+**Live Demo:** [https://strataenquiry.dungogjethro.workers.dev/](https://strataenquiry.dungogjethro.workers.dev/)
 
-> **Note:** The app requires a valid Anthropic API key configured in the environment. In a production deployment, API calls would be proxied through a backend to keep the key secret.
+If you want to run it locally or edit the UI:
+1. Clone this repository.
+2. Open `index.html` in your browser.
+3. The frontend is configured with CORS to securely call the live Cloudflare AI backend, meaning you can edit the UI locally and test it immediately without needing to run a local server.
 
 ## Design decisions
 
-### Why a single HTML file?
-The goal was a working prototype that any staff member can open immediately — no Node, no Python, no setup. In production this would be a proper backend + frontend.
+### Why Serverless Edge AI?
+The goal was a production-ready application that is incredibly fast and costs $0 to scale. By using Cloudflare Workers, the code runs in data centers geographically closest to the user. Using Cloudflare's built-in AI bindings means we don't need to manage API keys for paid services like OpenAI or Anthropic. 
 
 ### Prompt design
-The system prompt tells the model exactly:
+The system prompt tells the Llama 3.1 model exactly:
 - What the company does (context)
 - What the five categories are and how to distinguish them
 - What to do with vague/nonsensical inputs (low confidence + request clarification)
-- Output format (strict JSON, no markdown fences)
-
-This gives consistent, parseable output rather than free-form text.
+- Output format (strict JSON)
 
 ### Confidence scoring
 Confidence is elicited directly from the model in the prompt. Low confidence (< 50%) turns the progress bar red, signalling to staff that they should double-check the classification.
 
 ### Error handling
 - Network/API errors are caught and shown in a red error box
-- JSON parse failures are caught (the model is instructed not to wrap in markdown, but the code strips fences anyway)
-- Vague inputs are handled gracefully — the model is instructed to classify as "General Question" with low confidence and recommend a clarification call
+- JSON parse failures are caught and handled gracefully 
+- Vague inputs are classified as "General Question" with low confidence and recommend a clarification call
 
 ## Automation potential
 
 This tool could connect into a larger workflow:
 
-1. **Email integration**: An inbound email webhook (e.g. via SendGrid, Postmark, or Zapier) triggers this logic server-side and populates a CRM automatically
+1. **Email integration**: An inbound email webhook (e.g. via SendGrid or Postmark) triggers this worker logic server-side and populates a CRM automatically
 2. **CRM routing**: Classification result routes the ticket to the right team queue in HubSpot, Salesforce, or similar
 3. **Slack/Teams alerts**: High-urgency complaints trigger an immediate Slack notification to a manager
 4. **Response drafts**: The suggested response auto-populates in the CRM reply window, saving staff 2–3 minutes per enquiry
-
-## Tech used
-
-- HTML / CSS / Vanilla JavaScript (no frameworks)
-- [Anthropic Claude API](https://docs.anthropic.com) — `claude-sonnet-4-20250514`
-- Zero external dependencies
