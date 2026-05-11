@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strata Enquiry Classifier</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+  header { background: #1e3a5f; color: white; padding: 18px 32px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  header span { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
+  .container { max-width: 900px; margin: 32px auto; padding: 0 24px; }
+  .card { background: white; border-radius: 12px; padding: 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 24px; }
+  label { font-size: 0.85rem; font-weight: 600; color: #4a5568; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
+  textarea { width: 100%; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px; font-size: 0.95rem; font-family: inherit; resize: vertical; min-height: 140px; transition: border-color 0.2s; outline: none; }
+  textarea:focus { border-color: #1e3a5f; }
+  button.primary { background: #1e3a5f; color: white; border: none; padding: 12px 28px; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  button.primary:hover { background: #163058; }
+  button.primary:disabled { background: #a0aec0; cursor: not-allowed; }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-new { background: #ebf8ff; color: #2b6cb0; }
+  .badge-support { background: #faf5ff; color: #6b46c1; }
+  .badge-complaint { background: #fff5f5; color: #c53030; }
+  .badge-general { background: #f0fff4; color: #276749; }
+  .badge-billing { background: #fffaf0; color: #c05621; }
+  .badge-unknown { background: #f7fafc; color: #718096; }
+  .confidence-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .confidence-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .result-label { font-size: 0.75rem; font-weight: 600; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .result-value { font-size: 1rem; color: #2d3748; }
+  .suggested-response { background: #f7fafc; border-left: 4px solid #1e3a5f; border-radius: 0 8px 8px 0; padding: 16px; line-height: 1.7; font-size: 0.93rem; white-space: pre-wrap; }
+  .action-tag { display: inline-block; background: #e6fffa; color: #276749; border: 1px solid #81e6d9; border-radius: 6px; padding: 4px 10px; font-size: 0.82rem; font-weight: 600; margin: 3px 3px 3px 0; }
+  .error-box { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 14px; color: #c53030; font-size: 0.9rem; }
+  #results { display: none; }
+  .example-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+  .pill { background: #edf2f7; border: none; padding: 6px 14px; border-radius: 20px; font-size: 0.82rem; cursor: pointer; color: #4a5568; transition: background 0.15s; }
+  .pill:hover { background: #e2e8f0; }
+  .meta-row { display: flex; align-items: center; gap: 8px; }
+  .urgency-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .urgency-high { background: #fc8181; }
+  .urgency-medium { background: #f6ad55; }
+  .urgency-low { background: #68d391; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Strata Enquiry Classifier</h1>
+    <span>AI-powered intake triage for client enquiries</span>
+  </div>
+</header>
+<div class="container">
+  <div class="card">
+    <label for="enquiry">Client Enquiry</label>
+    <textarea id="enquiry" placeholder="Paste the client enquiry here — email, web form submission, or any freeform message..."></textarea>
+    <div class="example-pills">
+      <span style="font-size:0.8rem;color:#718096;">Try an example:</span>
+      <button class="pill" onclick="fillExample('new')">New client</button>
+      <button class="pill" onclick="fillExample('complaint')">Complaint</button>
+      <button class="pill" onclick="fillExample('support')">Support request</button>
+      <button class="pill" onclick="fillExample('billing')">Billing query</button>
+      <button class="pill" onclick="fillExample('vague')">Vague message</button>
+    </div>
+    <div style="margin-top:16px;">
+      <button class="primary" id="analyseBtn" onclick="analyse()">Analyse Enquiry</button>
+    </div>
+  </div>
+
+  <div id="results" class="card">
+    <div class="result-grid" style="margin-bottom:20px;">
+      <div>
+        <div class="result-label">Enquiry Type</div>
+        <span id="badge" class="badge"></span>
+      </div>
+      <div>
+        <div class="result-label">Urgency</div>
+        <div class="meta-row">
+          <span id="urgencyDot" class="urgency-dot"></span>
+          <span id="urgency" class="result-value"></span>
+        </div>
+      </div>
+      <div>
+        <div class="result-label">Confidence</div>
+        <div id="confidenceText" style="font-size:0.9rem;color:#2d3748;font-weight:600;"></div>
+        <div class="confidence-bar"><div id="confidenceFill" class="confidence-fill" style="width:0%"></div></div>
+      </div>
+      <div>
+        <div class="result-label">Recommended Routing</div>
+        <div id="routing" class="result-value"></div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div class="result-label">One-Line Summary</div>
+      <div id="summary" style="font-size:0.95rem;color:#2d3748;"></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div class="result-label">Recommended Actions</div>
+      <div id="actions"></div>
+    </div>
+    <div>
+      <div class="result-label">Suggested Staff Response</div>
+      <div id="response" class="suggested-response"></div>
+    </div>
+  </div>
+
+  <div id="errorBox" style="display:none;" class="error-box"></div>
+</div>
+
+<script>
+const EXAMPLES = {
+  new: "Hi there, I found your website and I'm interested in getting some advice about buying a business. I'm looking at a cafe in Brisbane and I need help understanding the financials and what a fair price would be. I've never bought a business before so I don't really know where to start. Can someone get in touch?",
+  complaint: "I am extremely frustrated. I engaged your firm three weeks ago and I still haven't received the valuation report I paid for. Every time I call I get told someone will call me back and nobody does. This is completely unacceptable. I need this resolved today or I will be leaving a public review and contacting Fair Trading.",
+  support: "Hey, quick question — I uploaded some documents through your client portal last Tuesday but I can't see them anymore when I log in. Did they get lost? I need them for a meeting on Friday. The documents were the lease agreement and the last two years of financials.",
+  billing: "Hi, I received my invoice #INV-2047 today and I think there's been an error. The invoice shows $3,400 but my agreement says the fee for this stage was $2,800. Could someone please review this and send me a corrected invoice if needed? Happy to provide my signed agreement.",
+  vague: "Hello I have a question about something."
+};
+
+function fillExample(key) {
+  document.getElementById('enquiry').value = EXAMPLES[key];
+}
+
+function badgeClass(type) {
+  const map = {
+    'New Client Enquiry': 'badge-new',
+    'Support Request': 'badge-support',
+    'Complaint': 'badge-complaint',
+    'General Question': 'badge-general',
+    'Billing Query': 'badge-billing'
+  };
+  return map[type] || 'badge-unknown';
+}
+
+async function analyse() {
+  const text = document.getElementById('enquiry').value.trim();
+  if (!text) { alert('Please enter an enquiry first.'); return; }
+
+  const btn = document.getElementById('analyseBtn');
+  btn.disabled = true;
+  btn.textContent = 'Analysing...';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+
+    // Using Cloudflare Workers AI via our backend endpoint
+
+  try {
+    const res = await fetch('/api/analyse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    });
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const result = data;
+
+    const badge = document.getElementById('badge');
+    badge.textContent = result.type;
+    badge.className = 'badge ' + badgeClass(result.type);
+
+    const urgencyDot = document.getElementById('urgencyDot');
+    urgencyDot.className = 'urgency-dot urgency-' + result.urgency.toLowerCase();
+    document.getElementById('urgency').textContent = result.urgency;
+
+    const conf = result.confidence;
+    document.getElementById('confidenceText').textContent = conf + '%';
+    const fill = document.getElementById('confidenceFill');
+    fill.style.width = conf + '%';
+    fill.style.background = conf >= 80
+      ? 'linear-gradient(90deg,#38a169,#48bb78)'
+      : conf >= 50
+        ? 'linear-gradient(90deg,#d69e2e,#f6ad55)'
+        : 'linear-gradient(90deg,#e53e3e,#fc8181)';
+
+    document.getElementById('routing').textContent = result.routing;
+    document.getElementById('summary').textContent = result.summary;
+
+    const actionsEl = document.getElementById('actions');
+    actionsEl.innerHTML = result.actions.map(a => '<span class="action-tag">' + a + '</span>').join('');
+
+    document.getElementById('response').textContent = result.response;
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+
+  } catch (err) {
+    const box = document.getElementById('errorBox');
+    box.style.display = 'block';
+    box.textContent = 'Error: ' + err.message + '. Please check your connection or try again.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyse Enquiry';
+  }
+}
+</script>
+</body>
+</html>
